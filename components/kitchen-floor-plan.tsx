@@ -4,11 +4,56 @@ import { cn } from "@/lib/utils"
 
 export type KitchenLayoutType = "l-shaped" | "u-shaped" | "galley" | "island" | "single-wall"
 
+export interface LayoutVariation {
+  id: string
+  name: string
+  description: string
+}
+
 interface KitchenFloorPlanProps {
   width: number
   depth: number
   layout: KitchenLayoutType
+  variation?: number // 0, 1, 2 for different variations
   className?: string
+}
+
+// Get available variations for each layout type
+export function getLayoutVariations(layout: KitchenLayoutType): LayoutVariation[] {
+  switch (layout) {
+    case "l-shaped":
+      return [
+        { id: "l-1", name: "Standard L", description: "Sink centered, range on right leg" },
+        { id: "l-2", name: "Corner Sink", description: "Sink in corner, more counter space" },
+        { id: "l-3", name: "Range on Wall", description: "Range centered on main wall" },
+      ]
+    case "u-shaped":
+      return [
+        { id: "u-1", name: "Symmetric U", description: "Balanced cabinet runs on all sides" },
+        { id: "u-2", name: "Peninsula U", description: "One side open as peninsula" },
+        { id: "u-3", name: "Wide U", description: "Extended counter on main wall" },
+      ]
+    case "galley":
+      return [
+        { id: "g-1", name: "Standard Galley", description: "Parallel runs with centered workflow" },
+        { id: "g-2", name: "Offset Galley", description: "Appliances staggered for flow" },
+        { id: "g-3", name: "Wide Aisle", description: "Maximized walkway clearance" },
+      ]
+    case "island":
+      return [
+        { id: "i-1", name: "Prep Island", description: "Island with sink for prep work" },
+        { id: "i-2", name: "Cooktop Island", description: "Range/cooktop on the island" },
+        { id: "i-3", name: "Seating Island", description: "Extended island with bar seating" },
+      ]
+    case "single-wall":
+      return [
+        { id: "s-1", name: "Compact Single", description: "Appliances grouped together" },
+        { id: "s-2", name: "Spread Single", description: "Appliances spaced with cabinets" },
+        { id: "s-3", name: "End Pantry", description: "Tall pantry cabinet at end" },
+      ]
+    default:
+      return []
+  }
 }
 
 // Standard dimensions in inches
