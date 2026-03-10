@@ -31,48 +31,10 @@ export function KitchenFloorPlan({ width, depth, layout, className }: KitchenFlo
   const baseCabinetPx = toPixels(BASE_CABINET_DEPTH)
   const wallCabinetPx = toPixels(WALL_CABINET_DEPTH)
 
-  // Base cabinet - TOP DOWN FLOOR PLAN VIEW (shows footprint with counter and door swing arcs)
+  // Base cabinet - TOP DOWN FLOOR PLAN VIEW (shows footprint with counter edge)
   const renderBaseCabinet = (x: number, y: number, widthIn: number, orientation: 'top' | 'bottom' | 'left' | 'right' = 'top') => {
     const w = (orientation === 'left' || orientation === 'right') ? baseCabinetPx : toPixels(widthIn)
     const h = (orientation === 'left' || orientation === 'right') ? toPixels(widthIn) : baseCabinetPx
-    const numDoors = widthIn >= 30 ? 2 : 1
-    const doorWidth = numDoors === 2 ? w / 2 : w
-    
-    // Door swing arc paths based on orientation
-    const renderDoorSwing = (doorX: number, doorY: number, doorW: number, doorH: number, isLeft: boolean) => {
-      if (orientation === 'top') {
-        // Doors open downward (toward room)
-        const arcX = isLeft ? doorX : doorX + doorW
-        const arcEndX = isLeft ? doorX + doorW * 0.9 : doorX + doorW * 0.1
-        return (
-          <path 
-            d={`M ${arcX} ${doorY + doorH} A ${doorW * 0.9} ${doorW * 0.9} 0 0 ${isLeft ? 1 : 0} ${arcEndX} ${doorY + doorH + doorW * 0.9}`}
-            fill="none" stroke="#888" strokeWidth={0.75} strokeDasharray="4 2"
-          />
-        )
-      } else if (orientation === 'left') {
-        // Doors open rightward (toward room)
-        const arcY = isLeft ? doorY : doorY + doorH
-        const arcEndY = isLeft ? doorY + doorH * 0.9 : doorY + doorH * 0.1
-        return (
-          <path 
-            d={`M ${doorX + doorW} ${arcY} A ${doorH * 0.9} ${doorH * 0.9} 0 0 ${isLeft ? 0 : 1} ${doorX + doorW + doorH * 0.9} ${arcEndY}`}
-            fill="none" stroke="#888" strokeWidth={0.75} strokeDasharray="4 2"
-          />
-        )
-      } else if (orientation === 'right') {
-        // Doors open leftward
-        const arcY = isLeft ? doorY : doorY + doorH
-        const arcEndY = isLeft ? doorY + doorH * 0.9 : doorY + doorH * 0.1
-        return (
-          <path 
-            d={`M ${doorX} ${arcY} A ${doorH * 0.9} ${doorH * 0.9} 0 0 ${isLeft ? 1 : 0} ${doorX - doorH * 0.9} ${arcEndY}`}
-            fill="none" stroke="#888" strokeWidth={0.75} strokeDasharray="4 2"
-          />
-        )
-      }
-      return null
-    }
     
     return (
       <g key={`base-${x}-${y}-${widthIn}`}>
@@ -84,16 +46,6 @@ export function KitchenFloorPlan({ width, depth, layout, className }: KitchenFlo
         {orientation === 'bottom' && <line x1={x} y1={y} x2={x + w} y2={y} stroke="#8b7355" strokeWidth={4} />}
         {orientation === 'left' && <line x1={x + w} y1={y} x2={x + w} y2={y + h} stroke="#8b7355" strokeWidth={4} />}
         {orientation === 'right' && <line x1={x} y1={y} x2={x} y2={y + h} stroke="#8b7355" strokeWidth={4} />}
-        
-        {/* Door swing arcs */}
-        {numDoors === 2 ? (
-          <>
-            {renderDoorSwing(x, y, doorWidth - 2, h, true)}
-            {renderDoorSwing(x + doorWidth + 2, y, doorWidth - 2, h, false)}
-          </>
-        ) : (
-          renderDoorSwing(x, y, w, h, true)
-        )}
         
         {/* Cabinet width dimension */}
         <text x={x + w / 2} y={orientation === 'top' ? y + h + 16 : y - 8} textAnchor="middle" fontSize={9} fill="#555">{widthIn}&quot;</text>
@@ -720,10 +672,9 @@ export function KitchenFloorPlan({ width, depth, layout, className }: KitchenFlo
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
           <div className="flex items-center gap-2">
             <svg width="36" height="24" viewBox="0 0 36 24">
-              {/* Base cabinet top-down: rectangle with counter edge and door swing arc */}
+              {/* Base cabinet top-down: rectangle with counter edge */}
               <rect x="2" y="2" width="32" height="18" fill="#f5f0e8" stroke="#2d2d2d" strokeWidth="1.5" />
               <line x1="2" y1="20" x2="34" y2="20" stroke="#8b7355" strokeWidth="3" />
-              <path d="M 2 20 A 14 14 0 0 1 16 6" fill="none" stroke="#888" strokeWidth="0.75" strokeDasharray="3 2" />
             </svg>
             <div>
               <div className="text-xs font-medium">Base Cabinet</div>
@@ -818,12 +769,6 @@ export function KitchenFloorPlan({ width, depth, layout, className }: KitchenFlo
               <line x1="2" y1="6" x2="22" y2="6" stroke="#8b7355" strokeWidth="4" />
             </svg>
             <span>Counter Edge</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <svg width="30" height="16" viewBox="0 0 30 16">
-              <path d="M 2 14 A 12 12 0 0 1 14 2" fill="none" stroke="#888" strokeWidth="1" strokeDasharray="3 2" />
-            </svg>
-            <span>Door Swing</span>
           </div>
         </div>
       </div>
