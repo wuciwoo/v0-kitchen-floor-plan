@@ -88,12 +88,21 @@ export default function KitchenPlannerPage() {
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border bg-card">
-        <div className="max-w-7xl mx-auto px-4 py-6">
-          <h1 className="text-3xl font-serif font-semibold text-foreground">
-            Kitchen Planner
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            Design your perfect kitchen layout based on your room dimensions
+        <div className="max-w-7xl mx-auto px-4 py-8">
+          <div className="flex items-center gap-3 mb-2">
+            <svg width="32" height="32" viewBox="0 0 32 32" fill="none" className="text-primary">
+              <rect x="2" y="8" width="28" height="18" rx="2" stroke="currentColor" strokeWidth="2" fill="none" />
+              <rect x="5" y="11" width="8" height="12" rx="1" stroke="currentColor" strokeWidth="1.5" fill="none" />
+              <circle cx="9" cy="17" r="2" stroke="currentColor" strokeWidth="1" fill="none" />
+              <rect x="15" y="11" width="6" height="6" rx="1" stroke="currentColor" strokeWidth="1.5" fill="none" />
+              <rect x="23" y="11" width="4" height="12" rx="1" stroke="currentColor" strokeWidth="1.5" fill="none" />
+            </svg>
+            <h1 className="text-3xl font-serif font-semibold text-foreground tracking-tight">
+              Kitchen Floor Plan Studio
+            </h1>
+          </div>
+          <p className="text-muted-foreground">
+            Professional kitchen layout visualization with architectural-style drawings and dimension annotations
           </p>
         </div>
       </header>
@@ -149,14 +158,17 @@ export default function KitchenPlannerPage() {
           {/* Main content - Floor plan visualization */}
           <div className="lg:col-span-2">
             <Card className="h-full">
-              <CardHeader>
+              <CardHeader className="pb-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <CardTitle className="text-lg">Floor Plan Preview</CardTitle>
-                    <CardDescription>
-                      {width}&apos; x {depth}&apos; ({area} sq ft) -{" "}
-                      {LAYOUT_OPTIONS.find((l) => l.type === activeLayout)?.name} Layout
+                    <CardTitle className="text-lg font-serif">Architectural Floor Plan</CardTitle>
+                    <CardDescription className="mt-1">
+                      Room: {width}&apos;-0&quot; x {depth}&apos;-0&quot; ({area} sq ft) | Layout: {LAYOUT_OPTIONS.find((l) => l.type === activeLayout)?.name}
                     </CardDescription>
+                  </div>
+                  <div className="text-right text-xs text-muted-foreground">
+                    <div>Drawing Scale: 1&quot; = 2&apos;-0&quot;</div>
+                    <div className="mt-0.5">Grid: 1&apos; x 1&apos;</div>
                   </div>
                 </div>
               </CardHeader>
@@ -168,24 +180,51 @@ export default function KitchenPlannerPage() {
                   className="w-full"
                 />
 
-                <div className="mt-6 p-4 bg-muted/50 rounded-lg">
-                  <h4 className="font-medium text-sm mb-2">Layout Tips</h4>
-                  <ul className="text-sm text-muted-foreground space-y-1">
-                    <li>
-                      • The work triangle connects sink, stove, and refrigerator
-                    </li>
-                    <li>
-                      • Each side of the triangle should be 4-9 feet
-                    </li>
-                    <li>
-                      • Leave at least 42&quot; clearance for walkways
-                    </li>
-                    {activeLayout === "island" && (
-                      <li>
-                        • Islands work best with at least 36&quot; clearance on all sides
+                <div className="mt-6 grid sm:grid-cols-2 gap-4">
+                  <div className="p-4 bg-muted/40 rounded-lg border border-border/50">
+                    <h4 className="font-medium text-sm mb-2 flex items-center gap-2">
+                      <svg width="16" height="16" viewBox="0 0 16 16" className="text-primary">
+                        <polygon points="8,2 14,14 2,14" fill="none" stroke="currentColor" strokeWidth="1.5" />
+                      </svg>
+                      Work Triangle Guidelines
+                    </h4>
+                    <ul className="text-sm text-muted-foreground space-y-1.5">
+                      <li className="flex gap-2">
+                        <span className="text-foreground">4&apos;-9&apos;</span>
+                        <span>ideal distance per side</span>
                       </li>
-                    )}
-                  </ul>
+                      <li className="flex gap-2">
+                        <span className="text-foreground">13&apos;-26&apos;</span>
+                        <span>total triangle perimeter</span>
+                      </li>
+                    </ul>
+                  </div>
+                  <div className="p-4 bg-muted/40 rounded-lg border border-border/50">
+                    <h4 className="font-medium text-sm mb-2 flex items-center gap-2">
+                      <svg width="16" height="16" viewBox="0 0 16 16" className="text-primary">
+                        <rect x="2" y="2" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.5" rx="1" />
+                        <line x1="8" y1="5" x2="8" y2="11" stroke="currentColor" strokeWidth="1.5" />
+                        <line x1="5" y1="8" x2="11" y2="8" stroke="currentColor" strokeWidth="1.5" />
+                      </svg>
+                      Clearance Requirements
+                    </h4>
+                    <ul className="text-sm text-muted-foreground space-y-1.5">
+                      <li className="flex gap-2">
+                        <span className="text-foreground">42&quot; min</span>
+                        <span>walkway clearance</span>
+                      </li>
+                      {activeLayout === "island" && (
+                        <li className="flex gap-2">
+                          <span className="text-foreground">36&quot; min</span>
+                          <span>around island</span>
+                        </li>
+                      )}
+                      <li className="flex gap-2">
+                        <span className="text-foreground">48&quot; ideal</span>
+                        <span>for two-cook kitchen</span>
+                      </li>
+                    </ul>
+                  </div>
                 </div>
               </CardContent>
             </Card>
