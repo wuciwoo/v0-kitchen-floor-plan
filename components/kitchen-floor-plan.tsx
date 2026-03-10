@@ -11,225 +11,362 @@ interface KitchenFloorPlanProps {
   className?: string
 }
 
-const SCALE = 25 // pixels per foot
-const CABINET_DEPTH = 2 // feet
-const MARGIN = 60 // margin for dimensions
+// Standard cabinet sizes in inches
+const STANDARD_CABINET_WIDTHS = [12, 15, 18, 21, 24, 27, 30, 33, 36, 42, 48]
+const BASE_CABINET_DEPTH = 24 // inches
+const WALL_CABINET_DEPTH = 12 // inches
+const APPLIANCE_WIDTHS = {
+  sink: 36,
+  range: 30,
+  fridge: 36,
+  dishwasher: 24,
+}
+
+const SCALE = 2.5 // pixels per inch
+const MARGIN = 80 // margin for dimensions
+
+// Convert inches to pixels
+const toPixels = (inches: number) => inches * SCALE
 
 export function KitchenFloorPlan({ width, depth, layout, className }: KitchenFloorPlanProps) {
-  const roomWidth = width * SCALE
-  const roomHeight = depth * SCALE
+  const roomWidthIn = width * 12 // convert feet to inches
+  const roomDepthIn = depth * 12
+  const roomWidth = toPixels(roomWidthIn)
+  const roomHeight = toPixels(roomDepthIn)
   const svgWidth = roomWidth + MARGIN * 2
   const svgHeight = roomHeight + MARGIN * 2
-  const cabinetDepthPx = CABINET_DEPTH * SCALE
+  const baseDepthPx = toPixels(BASE_CABINET_DEPTH)
+  const wallDepthPx = toPixels(WALL_CABINET_DEPTH)
 
-  // Render detailed sink with basin shape
-  const renderSink = (x: number, y: number, w: number, h: number, rotation = 0) => {
-    const cx = x + w / 2
-    const cy = y + h / 2
+  // Calculate cabinet run with standard sizes
+  const calculateCabinetRun = (totalWidth: number, reservedWidth: number = 0) => {
+    const availableWidth = totalWidth - reservedWidth
+    const cabinets: number[] = []
+    let remaining = availableWidth
+
+    // Fill with standard cabinet sizes (largest first)
+    const sortedWidths = [...STANDARD_CABINET_WIDTHS].sort((a, b) => b - a)
+    
+    while (remaining > 0) {
+      const fitting = sortedWidths.find(w => w <= remaining)
+      if (!fitting) break
+      cabinets.push(fitting)
+      remaining -= fitting
+    }
+    
+    return cabinets
+  }
+
+  // Render base cabinet with door lines and dimensions
+  const renderBaseCabinet = (x: number, y: number, widthIn: number, isVertical = false, showDimension = true) => {
+    const w = isVertical ? baseDepthPx : toPixels(widthIn)
+    const h = isVertical ? toPixels(widthIn) : baseDepthPx
+    const id = `base-${x}-${y}-${widthIn}`
+    
     return (
-      <g transform={`rotate(${rotation} ${cx} ${cy})`}>
-        {/* Counter cutout */}
-        <rect x={x} y={y} width={w} height={h} fill="#e8e4df" stroke="#1a1a1a" strokeWidth={1.5} />
-        {/* Basin */}
-        <rect 
-          x={x + w * 0.1} 
-          y={y + h * 0.15} 
-          width={w * 0.8} 
-          height={h * 0.7} 
-          fill="#f5f5f5" 
-          stroke="#1a1a1a" 
-          strokeWidth={1} 
-          rx={4}
-        />
-        {/* Drain */}
-        <circle cx={cx} cy={cy + h * 0.1} r={w * 0.08} fill="#1a1a1a" />
-        {/* Faucet base */}
-        <ellipse cx={cx} cy={y + h * 0.12} rx={w * 0.12} ry={h * 0.06} fill="#888" stroke="#1a1a1a" strokeWidth={0.5} />
-        {/* Faucet spout */}
-        <path 
-          d={`M ${cx} ${y + h * 0.12} Q ${cx} ${y + h * 0.25} ${cx} ${y + h * 0.35}`}
-          fill="none" 
-          stroke="#888" 
-          strokeWidth={3}
-          strokeLinecap="round"
-        />
+      <g key={id}>
+        {/* Cabinet body */}
+        <rect x={x} y={y} width={w} height={h} fill="#f5f0e8" stroke="#1a1a1a" strokeWidth={1.5} />
+        {/* Door panel(s) */}
+        {widthIn >= 24 ? (
+          // Double door
+          <>
+            <rect x={x + 3} y={y + 3} width={(w - 9) / 2} height={h - 6} fill="none" stroke="#8b8073" strokeWidth={1} />
+            <rect x={x + w / 2 + 1.5} y={y + 3} width={(w - 9) / 2} height={h - 6} fill="none" stroke="#8b8073" strokeWidth={1} />
+            {/* Handles */}
+            <circle cx={x + w / 2 - 6} cy={y + h / 2} r={2} fill="#666" />
+            <circle cx={x + w / 2 + 6} cy={y + h / 2} r={2} fill="#666" />
+          </>
+        ) : (
+          // Single door
+          <>
+            <rect x={x + 3} y={y + 3} width={w - 6} height={h - 6} fill="none" stroke="#8b8073" strokeWidth={1} />
+            <circle cx={isVertical ? x + w / 2 : x + w - 10} cy={isVertical ? y + 10 : y + h / 2} r={2} fill="#666" />
+          </>
+        )}
+        {/* Width dimension label */}
+        {showDimension && (
+          <text
+            x={x + w / 2}
+            y={y + h + 12}
+            textAnchor="middle"
+            className="text-[8px]"
+            fill="#666"
+          >
+            {widthIn}&quot;
+          </text>
+        )}
       </g>
     )
   }
 
-  // Render detailed stove/range with burners
-  const renderStove = (x: number, y: number, w: number, h: number, rotation = 0) => {
+  // Render wall cabinet (shown as dashed outline above base)
+  const renderWallCabinet = (x: number, y: number, widthIn: number, isVertical = false) => {
+    const w = isVertical ? wallDepthPx : toPixels(widthIn)
+    const h = isVertical ? toPixels(widthIn) : wallDepthPx
+    const id = `wall-${x}-${y}-${widthIn}`
+    
+    return (
+      <g key={id}>
+        {/* Wall cabinet outline - dashed */}
+        <rect 
+          x={x} 
+          y={y} 
+          width={w} 
+          height={h} 
+          fill="rgba(200, 195, 185, 0.3)" 
+          stroke="#666" 
+          strokeWidth={1} 
+          strokeDasharray="4 2" 
+        />
+        {/* Diagonal lines to indicate wall cabinet */}
+        <line x1={x} y1={y} x2={x + w} y2={y + h} stroke="#999" strokeWidth={0.5} strokeDasharray="2 2" />
+        <line x1={x + w} y1={y} x2={x} y2={y + h} stroke="#999" strokeWidth={0.5} strokeDasharray="2 2" />
+      </g>
+    )
+  }
+
+  // Render detailed sink
+  const renderSink = (x: number, y: number, widthIn: number, isVertical = false) => {
+    const w = isVertical ? baseDepthPx : toPixels(widthIn)
+    const h = isVertical ? toPixels(widthIn) : baseDepthPx
     const cx = x + w / 2
     const cy = y + h / 2
-    const burnerRadius = Math.min(w, h) * 0.15
-    const burnerSpacing = 0.28
+    
     return (
-      <g transform={`rotate(${rotation} ${cx} ${cy})`}>
-        {/* Stove body */}
-        <rect x={x} y={y} width={w} height={h} fill="#2a2a2a" stroke="#1a1a1a" strokeWidth={1.5} rx={2} />
+      <g>
+        {/* Counter/cabinet */}
+        <rect x={x} y={y} width={w} height={h} fill="#e8e4df" stroke="#1a1a1a" strokeWidth={1.5} />
+        {/* Double basin */}
+        <rect x={x + 6} y={y + 6} width={w * 0.42} height={h - 12} fill="#f8f8f8" stroke="#1a1a1a" strokeWidth={1} rx={3} />
+        <rect x={x + w * 0.52} y={y + 6} width={w * 0.42} height={h - 12} fill="#f8f8f8" stroke="#1a1a1a" strokeWidth={1} rx={3} />
+        {/* Drains */}
+        <circle cx={x + 6 + w * 0.21} cy={cy} r={3} fill="#333" />
+        <circle cx={x + w * 0.52 + w * 0.21} cy={cy} r={3} fill="#333" />
+        {/* Faucet */}
+        <ellipse cx={cx} cy={y + 8} rx={8} ry={4} fill="#888" stroke="#666" strokeWidth={0.5} />
+        <rect x={cx - 2} y={y + 10} width={4} height={12} fill="#888" />
+        <ellipse cx={cx} cy={y + 22} rx={6} ry={3} fill="#888" stroke="#666" strokeWidth={0.5} />
+        {/* Label */}
+        <text x={cx} y={y + h + 12} textAnchor="middle" className="text-[8px] font-medium" fill="#1a1a1a">
+          SINK {widthIn}&quot;
+        </text>
+      </g>
+    )
+  }
+
+  // Render detailed range/cooktop
+  const renderRange = (x: number, y: number, widthIn: number, isVertical = false) => {
+    const w = isVertical ? baseDepthPx : toPixels(widthIn)
+    const h = isVertical ? toPixels(widthIn) : baseDepthPx
+    const burnerR = Math.min(w, h) * 0.12
+    
+    return (
+      <g>
+        {/* Range body */}
+        <rect x={x} y={y} width={w} height={h} fill="#1a1a1a" stroke="#1a1a1a" strokeWidth={1.5} />
         {/* Cooktop surface */}
-        <rect x={x + 3} y={y + 3} width={w - 6} height={h - 6} fill="#1a1a1a" stroke="#333" strokeWidth={0.5} rx={1} />
-        {/* Burners - 4 burner layout */}
+        <rect x={x + 4} y={y + 4} width={w - 8} height={h - 12} fill="#2a2a2a" stroke="#333" strokeWidth={0.5} />
+        {/* 4 burners */}
         {[
-          [x + w * burnerSpacing, y + h * burnerSpacing],
-          [x + w * (1 - burnerSpacing), y + h * burnerSpacing],
-          [x + w * burnerSpacing, y + h * (1 - burnerSpacing)],
-          [x + w * (1 - burnerSpacing), y + h * (1 - burnerSpacing)],
+          [x + w * 0.28, y + h * 0.32],
+          [x + w * 0.72, y + h * 0.32],
+          [x + w * 0.28, y + h * 0.65],
+          [x + w * 0.72, y + h * 0.65],
         ].map(([bx, by], i) => (
           <g key={i}>
-            {/* Outer ring */}
-            <circle cx={bx} cy={by} r={burnerRadius} fill="none" stroke="#555" strokeWidth={2} />
-            {/* Inner ring */}
-            <circle cx={bx} cy={by} r={burnerRadius * 0.6} fill="none" stroke="#444" strokeWidth={1.5} />
-            {/* Center */}
-            <circle cx={bx} cy={by} r={burnerRadius * 0.25} fill="#333" />
+            <circle cx={bx} cy={by} r={burnerR} fill="none" stroke="#555" strokeWidth={2} />
+            <circle cx={bx} cy={by} r={burnerR * 0.65} fill="none" stroke="#444" strokeWidth={1.5} />
+            <circle cx={bx} cy={by} r={burnerR * 0.3} fill="#333" />
+            {/* Grates */}
+            <line x1={bx - burnerR * 0.8} y1={by} x2={bx + burnerR * 0.8} y2={by} stroke="#444" strokeWidth={1} />
+            <line x1={bx} y1={by - burnerR * 0.8} x2={bx} y2={by + burnerR * 0.8} stroke="#444" strokeWidth={1} />
           </g>
         ))}
-        {/* Control panel area */}
-        <rect x={x + w * 0.1} y={y + h - 8} width={w * 0.8} height={5} fill="#333" rx={1} />
-        {/* Control knobs */}
-        {[0.25, 0.4, 0.6, 0.75].map((pos, i) => (
+        {/* Control panel */}
+        <rect x={x + 6} y={y + h - 8} width={w - 12} height={5} fill="#333" rx={1} />
+        {[0.2, 0.35, 0.5, 0.65, 0.8].map((pos, i) => (
           <circle key={i} cx={x + w * pos} cy={y + h - 5.5} r={2} fill="#666" />
         ))}
+        {/* Label */}
+        <text x={x + w / 2} y={y + h + 12} textAnchor="middle" className="text-[8px] font-medium" fill="#1a1a1a">
+          RANGE {widthIn}&quot;
+        </text>
       </g>
     )
   }
 
   // Render detailed refrigerator
-  const renderFridge = (x: number, y: number, w: number, h: number, rotation = 0) => {
-    const cx = x + w / 2
-    const cy = y + h / 2
+  const renderFridge = (x: number, y: number, widthIn: number, depthIn: number, isVertical = false) => {
+    const w = isVertical ? toPixels(depthIn) : toPixels(widthIn)
+    const h = isVertical ? toPixels(widthIn) : toPixels(depthIn)
+    
     return (
-      <g transform={`rotate(${rotation} ${cx} ${cy})`}>
+      <g>
         {/* Fridge body */}
-        <rect x={x} y={y} width={w} height={h} fill="#e0e0e0" stroke="#1a1a1a" strokeWidth={1.5} rx={2} />
-        {/* Freezer section (top) */}
-        <rect x={x + 2} y={y + 2} width={w - 4} height={h * 0.3} fill="#d0d0d0" stroke="#aaa" strokeWidth={0.5} />
-        {/* Main section */}
-        <rect x={x + 2} y={y + h * 0.32} width={w - 4} height={h * 0.66} fill="#d0d0d0" stroke="#aaa" strokeWidth={0.5} />
-        {/* Door handles */}
-        <line x1={x + w - 6} y1={y + h * 0.08} x2={x + w - 6} y2={y + h * 0.22} stroke="#888" strokeWidth={2} strokeLinecap="round" />
-        <line x1={x + w - 6} y1={y + h * 0.4} x2={x + w - 6} y2={y + h * 0.6} stroke="#888" strokeWidth={2} strokeLinecap="round" />
-        {/* Vent grill at bottom */}
-        <rect x={x + w * 0.2} y={y + h - 6} width={w * 0.6} height={4} fill="#333" rx={1} />
+        <rect x={x} y={y} width={w} height={h} fill="#d8d8d8" stroke="#1a1a1a" strokeWidth={2} />
+        {/* French doors (top) */}
+        <rect x={x + 3} y={y + 3} width={w / 2 - 5} height={h * 0.65} fill="#e8e8e8" stroke="#aaa" strokeWidth={0.5} />
+        <rect x={x + w / 2 + 2} y={y + 3} width={w / 2 - 5} height={h * 0.65} fill="#e8e8e8" stroke="#aaa" strokeWidth={0.5} />
+        {/* Freezer drawer (bottom) */}
+        <rect x={x + 3} y={y + h * 0.68} width={w - 6} height={h * 0.29} fill="#e0e0e0" stroke="#aaa" strokeWidth={0.5} />
+        {/* Handles */}
+        <line x1={x + w / 2 - 4} y1={y + h * 0.15} x2={x + w / 2 - 4} y2={y + h * 0.45} stroke="#888" strokeWidth={2} strokeLinecap="round" />
+        <line x1={x + w / 2 + 4} y1={y + h * 0.15} x2={x + w / 2 + 4} y2={y + h * 0.45} stroke="#888" strokeWidth={2} strokeLinecap="round" />
+        <line x1={x + w * 0.3} y1={y + h * 0.82} x2={x + w * 0.7} y2={y + h * 0.82} stroke="#888" strokeWidth={2} strokeLinecap="round" />
+        {/* Label */}
+        <text x={x + w / 2} y={y + h + 12} textAnchor="middle" className="text-[8px] font-medium" fill="#1a1a1a">
+          REF {widthIn}&quot;x{depthIn}&quot;
+        </text>
       </g>
     )
   }
 
   // Render dishwasher
-  const renderDishwasher = (x: number, y: number, w: number, h: number) => (
-    <g>
-      <rect x={x} y={y} width={w} height={h} fill="#c8c8c8" stroke="#1a1a1a" strokeWidth={1.5} rx={1} />
-      {/* Control panel */}
-      <rect x={x + 3} y={y + 3} width={w - 6} height={8} fill="#444" rx={1} />
-      {/* Handle */}
-      <line x1={x + w * 0.2} y1={y + h * 0.5} x2={x + w * 0.8} y2={y + h * 0.5} stroke="#888" strokeWidth={3} strokeLinecap="round" />
-    </g>
-  )
-
-  // Render cabinet with hatch pattern
-  const renderCabinet = (x: number, y: number, w: number, h: number, isVertical = false) => {
-    const hatchId = `hatch-${x}-${y}`
+  const renderDishwasher = (x: number, y: number, widthIn: number, isVertical = false) => {
+    const w = isVertical ? baseDepthPx : toPixels(widthIn)
+    const h = isVertical ? toPixels(widthIn) : baseDepthPx
+    
     return (
       <g>
-        <defs>
-          <pattern id={hatchId} patternUnits="userSpaceOnUse" width="8" height="8" patternTransform="rotate(45)">
-            <line x1="0" y1="0" x2="0" y2="8" stroke="#c9c3ba" strokeWidth="1" />
-          </pattern>
-        </defs>
-        {/* Cabinet base */}
-        <rect x={x} y={y} width={w} height={h} fill={`url(#${hatchId})`} stroke="#1a1a1a" strokeWidth={1.5} />
-        {/* Counter edge highlight */}
-        {isVertical ? (
-          <line x1={x + w} y1={y} x2={x + w} y2={y + h} stroke="#a09585" strokeWidth={2} />
-        ) : (
-          <line x1={x} y1={y + h} x2={x + w} y2={y + h} stroke="#a09585" strokeWidth={2} />
-        )}
+        {/* Body */}
+        <rect x={x} y={y} width={w} height={h} fill="#c0c0c0" stroke="#1a1a1a" strokeWidth={1.5} />
+        {/* Control panel */}
+        <rect x={x + 4} y={y + 4} width={w - 8} height={8} fill="#333" rx={1} />
+        {/* Door panel */}
+        <rect x={x + 4} y={y + 14} width={w - 8} height={h - 20} fill="#d0d0d0" stroke="#aaa" strokeWidth={0.5} />
+        {/* Handle */}
+        <line x1={x + 10} y1={y + h / 2 + 5} x2={x + w - 10} y2={y + h / 2 + 5} stroke="#666" strokeWidth={3} strokeLinecap="round" />
+        {/* Label */}
+        <text x={x + w / 2} y={y + h + 12} textAnchor="middle" className="text-[8px] font-medium" fill="#1a1a1a">
+          DW {widthIn}&quot;
+        </text>
       </g>
     )
   }
 
-  // Render island with seating indicators
-  const renderIsland = (x: number, y: number, w: number, h: number) => (
-    <g>
-      <defs>
-        <pattern id="island-hatch" patternUnits="userSpaceOnUse" width="8" height="8" patternTransform="rotate(-45)">
-          <line x1="0" y1="0" x2="0" y2="8" stroke="#d4cfc6" strokeWidth="1" />
-        </pattern>
-      </defs>
-      {/* Island body */}
-      <rect x={x} y={y} width={w} height={h} fill="url(#island-hatch)" stroke="#1a1a1a" strokeWidth={2} />
-      {/* Counter edge */}
-      <rect x={x + 2} y={y + 2} width={w - 4} height={h - 4} fill="none" stroke="#a09585" strokeWidth={1} />
-      {/* Seating stools */}
-      {Array.from({ length: Math.floor(w / 30) }).map((_, i) => {
-        const stoolX = x + 15 + i * 30
-        return (
-          <g key={i}>
-            <circle cx={stoolX} cy={y + h + 20} r={10} fill="none" stroke="#666" strokeWidth={1.5} strokeDasharray="3 2" />
-          </g>
-        )
-      })}
-    </g>
-  )
+  // Render cabinet run with dimensions
+  const renderCabinetRun = (
+    startX: number, 
+    startY: number, 
+    cabinets: { type: 'base' | 'appliance', width: number, applianceType?: 'sink' | 'range' | 'dishwasher' | 'fridge' }[],
+    direction: 'horizontal' | 'vertical',
+    showWallCabinets = true
+  ) => {
+    let currentX = startX
+    let currentY = startY
+    
+    return (
+      <g>
+        {cabinets.map((cab, i) => {
+          const x = currentX
+          const y = currentY
+          const isVertical = direction === 'vertical'
+          
+          let element: React.ReactNode = null
+          
+          if (cab.type === 'appliance') {
+            switch (cab.applianceType) {
+              case 'sink':
+                element = renderSink(x, y, cab.width, isVertical)
+                // No wall cabinet above sink
+                break
+              case 'range':
+                element = renderRange(x, y, cab.width, isVertical)
+                // No wall cabinet above range (hood instead)
+                break
+              case 'dishwasher':
+                element = renderDishwasher(x, y, cab.width, isVertical)
+                if (showWallCabinets) {
+                  element = (
+                    <>
+                      {element}
+                      {renderWallCabinet(
+                        isVertical ? x + baseDepthPx + 4 : x,
+                        isVertical ? y : y - wallDepthPx - 4,
+                        cab.width,
+                        isVertical
+                      )}
+                    </>
+                  )
+                }
+                break
+              case 'fridge':
+                element = renderFridge(x, y, cab.width, 30, isVertical)
+                // No wall cabinet above fridge
+                break
+            }
+          } else {
+            element = (
+              <>
+                {renderBaseCabinet(x, y, cab.width, isVertical)}
+                {showWallCabinets && renderWallCabinet(
+                  isVertical ? x + baseDepthPx + 4 : x,
+                  isVertical ? y : y - wallDepthPx - 4,
+                  cab.width,
+                  isVertical
+                )}
+              </>
+            )
+          }
+          
+          if (isVertical) {
+            currentY += toPixels(cab.width)
+          } else {
+            currentX += toPixels(cab.width)
+          }
+          
+          return <g key={i}>{element}</g>
+        })}
+      </g>
+    )
+  }
 
-  // Render dimension line with arrows
-  const renderDimension = (x1: number, y1: number, x2: number, y2: number, label: string, offset = 0) => {
-    const isHorizontal = y1 === y2
-    const length = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
+  // Render dimension line
+  const renderDimension = (x1: number, y1: number, x2: number, y2: number, label: string, offset = 20, showTicks = true) => {
+    const isHorizontal = Math.abs(y2 - y1) < Math.abs(x2 - x1)
     const midX = (x1 + x2) / 2
     const midY = (y1 + y2) / 2
-    const arrowSize = 6
-
+    
     return (
-      <g className="dimension-line">
-        {/* Extension lines */}
-        {isHorizontal ? (
+      <g>
+        {showTicks && (
           <>
-            <line x1={x1} y1={y1 - 8 - offset} x2={x1} y2={y1 + 5} stroke="#666" strokeWidth={0.5} />
-            <line x1={x2} y1={y2 - 8 - offset} x2={x2} y2={y2 + 5} stroke="#666" strokeWidth={0.5} />
-          </>
-        ) : (
-          <>
-            <line x1={x1 - 8 - offset} y1={y1} x2={x1 + 5} y2={y1} stroke="#666" strokeWidth={0.5} />
-            <line x1={x2 - 8 - offset} y1={y2} x2={x2 + 5} y2={y2} stroke="#666" strokeWidth={0.5} />
+            {isHorizontal ? (
+              <>
+                <line x1={x1} y1={y1 - 5} x2={x1} y2={y1 + offset + 5} stroke="#444" strokeWidth={0.5} />
+                <line x1={x2} y1={y2 - 5} x2={x2} y2={y2 + offset + 5} stroke="#444" strokeWidth={0.5} />
+              </>
+            ) : (
+              <>
+                <line x1={x1 - offset - 5} y1={y1} x2={x1 + 5} y2={y1} stroke="#444" strokeWidth={0.5} />
+                <line x1={x2 - offset - 5} y1={y2} x2={x2 + 5} y2={y2} stroke="#444" strokeWidth={0.5} />
+              </>
+            )}
           </>
         )}
-        {/* Main dimension line */}
         <line 
-          x1={isHorizontal ? x1 : x1 - 5 - offset} 
-          y1={isHorizontal ? y1 - 5 - offset : y1}
-          x2={isHorizontal ? x2 : x2 - 5 - offset}
-          y2={isHorizontal ? y2 - 5 - offset : y2}
-          stroke="#666" 
-          strokeWidth={1} 
+          x1={isHorizontal ? x1 : x1 - offset}
+          y1={isHorizontal ? y1 + offset : y1}
+          x2={isHorizontal ? x2 : x2 - offset}
+          y2={isHorizontal ? y2 + offset : y2}
+          stroke="#444"
+          strokeWidth={1}
+          markerStart="url(#arrow-start)"
+          markerEnd="url(#arrow-end)"
         />
-        {/* Arrows */}
-        {isHorizontal ? (
-          <>
-            <polygon points={`${x1},${y1 - 5 - offset} ${x1 + arrowSize},${y1 - 5 - offset - 3} ${x1 + arrowSize},${y1 - 5 - offset + 3}`} fill="#666" />
-            <polygon points={`${x2},${y2 - 5 - offset} ${x2 - arrowSize},${y2 - 5 - offset - 3} ${x2 - arrowSize},${y2 - 5 - offset + 3}`} fill="#666" />
-          </>
-        ) : (
-          <>
-            <polygon points={`${x1 - 5 - offset},${y1} ${x1 - 5 - offset - 3},${y1 + arrowSize} ${x1 - 5 - offset + 3},${y1 + arrowSize}`} fill="#666" />
-            <polygon points={`${x2 - 5 - offset},${y2} ${x2 - 5 - offset - 3},${y2 - arrowSize} ${x2 - 5 - offset + 3},${y2 - arrowSize}`} fill="#666" />
-          </>
-        )}
-        {/* Label */}
         <rect 
-          x={midX - (isHorizontal ? 18 : 8)} 
-          y={midY - (isHorizontal ? 16 - offset : 8)} 
-          width={isHorizontal ? 36 : 16} 
-          height={isHorizontal ? 14 : 16}
+          x={midX - (isHorizontal ? 24 : 16)}
+          y={midY + (isHorizontal ? offset - 8 : -8)}
+          width={isHorizontal ? 48 : 32}
+          height={16}
           fill="white"
         />
-        <text 
-          x={midX}
-          y={isHorizontal ? midY - 5 - offset : midY + 4}
-          textAnchor="middle" 
-          dominantBaseline="middle"
-          className="text-[11px] font-medium"
+        <text
+          x={isHorizontal ? midX : midX - offset}
+          y={isHorizontal ? midY + offset + 4 : midY + 4}
+          textAnchor="middle"
+          className="text-[10px] font-medium"
           fill="#333"
         >
           {label}
@@ -238,171 +375,178 @@ export function KitchenFloorPlan({ width, depth, layout, className }: KitchenFlo
     )
   }
 
-  // Render work triangle with measurements
-  const renderWorkTriangle = (points: [number, number][], labels: string[]) => {
+  // Render work triangle
+  const renderWorkTriangle = (points: [number, number][]) => {
     if (points.length < 3) return null
     const pathData = `M ${points[0][0]} ${points[0][1]} L ${points[1][0]} ${points[1][1]} L ${points[2][0]} ${points[2][1]} Z`
     
-    const getMidpoint = (p1: [number, number], p2: [number, number]): [number, number] => [
-      (p1[0] + p2[0]) / 2,
-      (p1[1] + p2[1]) / 2
-    ]
-
-    const edges = [
-      { from: points[0], to: points[1], label: labels[0] },
-      { from: points[1], to: points[2], label: labels[1] },
-      { from: points[2], to: points[0], label: labels[2] },
-    ]
-
     return (
       <g>
-        {/* Triangle fill */}
-        <path d={pathData} fill="rgba(59, 130, 246, 0.08)" stroke="none" />
-        {/* Triangle edges with dashes */}
-        {edges.map((edge, i) => {
-          const mid = getMidpoint(edge.from, edge.to)
-          return (
-            <g key={i}>
-              <line 
-                x1={edge.from[0]} y1={edge.from[1]}
-                x2={edge.to[0]} y2={edge.to[1]}
-                stroke="#3b82f6"
-                strokeWidth={1.5}
-                strokeDasharray="6 4"
-              />
-              <rect x={mid[0] - 14} y={mid[1] - 8} width={28} height={16} fill="white" rx={2} />
-              <text x={mid[0]} y={mid[1] + 1} textAnchor="middle" dominantBaseline="middle" className="text-[9px]" fill="#3b82f6">
-                {edge.label}
-              </text>
-            </g>
-          )
-        })}
-        {/* Corner markers */}
+        <path d={pathData} fill="rgba(59, 130, 246, 0.06)" stroke="#3b82f6" strokeWidth={1.5} strokeDasharray="8 4" />
         {points.map((p, i) => (
-          <circle key={i} cx={p[0]} cy={p[1]} r={4} fill="#3b82f6" />
+          <circle key={i} cx={p[0]} cy={p[1]} r={5} fill="#3b82f6" />
         ))}
       </g>
     )
   }
 
-  const calculateDistance = (p1: [number, number], p2: [number, number]): string => {
-    const dist = Math.sqrt((p2[0] - p1[0]) ** 2 + (p2[1] - p1[1]) ** 2) / SCALE
-    return `${dist.toFixed(1)}'`
-  }
-
   const renderLayout = () => {
-    const ox = MARGIN // offset x
-    const oy = MARGIN // offset y
+    const ox = MARGIN
+    const oy = MARGIN
 
     switch (layout) {
       case "l-shaped": {
-        const sinkPos: [number, number] = [ox + cabinetDepthPx + 40, oy + cabinetDepthPx / 2]
-        const fridgePos: [number, number] = [ox + cabinetDepthPx / 2, oy + roomHeight - 60]
-        const stovePos: [number, number] = [ox + roomWidth - 80, oy + cabinetDepthPx / 2]
+        // Top wall cabinets and base
+        const topCabinets = [
+          { type: 'base' as const, width: 36 },
+          { type: 'appliance' as const, width: 36, applianceType: 'sink' as const },
+          { type: 'appliance' as const, width: 24, applianceType: 'dishwasher' as const },
+          { type: 'base' as const, width: 24 },
+          { type: 'appliance' as const, width: 30, applianceType: 'range' as const },
+          { type: 'base' as const, width: 18 },
+        ]
         
+        // Left wall
+        const leftCabinets = [
+          { type: 'base' as const, width: 36 },
+          { type: 'appliance' as const, width: 36, applianceType: 'fridge' as const },
+          { type: 'base' as const, width: 24 },
+        ]
+
+        const sinkPos: [number, number] = [ox + toPixels(36) + toPixels(18), oy + baseDepthPx / 2]
+        const rangePos: [number, number] = [ox + toPixels(36 + 36 + 24 + 24 + 15), oy + baseDepthPx / 2]
+        const fridgePos: [number, number] = [ox + baseDepthPx / 2, oy + baseDepthPx + toPixels(36 + 18)]
+
         return (
           <>
-            {renderCabinet(ox, oy, roomWidth, cabinetDepthPx)}
-            {renderCabinet(ox, oy + cabinetDepthPx, cabinetDepthPx, roomHeight - cabinetDepthPx, true)}
-            {renderSink(ox + cabinetDepthPx + 20, oy + 4, 50, cabinetDepthPx - 8)}
-            {renderStove(ox + roomWidth - 100, oy + 4, 55, cabinetDepthPx - 8)}
-            {renderDishwasher(ox + cabinetDepthPx + 80, oy + 4, 40, cabinetDepthPx - 8)}
-            {renderFridge(ox + 4, oy + roomHeight - 80, cabinetDepthPx - 8, 70, 0)}
-            {renderWorkTriangle(
-              [sinkPos, stovePos, fridgePos],
-              [calculateDistance(sinkPos, stovePos), calculateDistance(stovePos, fridgePos), calculateDistance(fridgePos, sinkPos)]
-            )}
+            {renderCabinetRun(ox, oy, topCabinets, 'horizontal')}
+            {renderCabinetRun(ox, oy + baseDepthPx, leftCabinets, 'vertical')}
+            {renderWorkTriangle([sinkPos, rangePos, fridgePos])}
           </>
         )
       }
 
       case "u-shaped": {
-        const sinkPos: [number, number] = [ox + roomWidth / 2, oy + cabinetDepthPx / 2]
-        const fridgePos: [number, number] = [ox + cabinetDepthPx / 2, oy + roomHeight - cabinetDepthPx - 35]
-        const stovePos: [number, number] = [ox + roomWidth - cabinetDepthPx / 2, oy + roomHeight - cabinetDepthPx - 35]
+        const topCabinets = [
+          { type: 'base' as const, width: 30 },
+          { type: 'appliance' as const, width: 36, applianceType: 'sink' as const },
+          { type: 'appliance' as const, width: 24, applianceType: 'dishwasher' as const },
+          { type: 'base' as const, width: 30 },
+        ]
         
+        const leftCabinets = [
+          { type: 'base' as const, width: 30 },
+          { type: 'appliance' as const, width: 36, applianceType: 'fridge' as const },
+          { type: 'base' as const, width: 24 },
+        ]
+        
+        const rightCabinets = [
+          { type: 'base' as const, width: 24 },
+          { type: 'appliance' as const, width: 30, applianceType: 'range' as const },
+          { type: 'base' as const, width: 36 },
+        ]
+
+        const sinkPos: [number, number] = [ox + toPixels(30 + 18), oy + baseDepthPx / 2]
+        const rangePos: [number, number] = [ox + roomWidth - baseDepthPx / 2, oy + baseDepthPx + toPixels(24 + 15)]
+        const fridgePos: [number, number] = [ox + baseDepthPx / 2, oy + baseDepthPx + toPixels(30 + 18)]
+
         return (
           <>
-            {renderCabinet(ox, oy, roomWidth, cabinetDepthPx)}
-            {renderCabinet(ox, oy + cabinetDepthPx, cabinetDepthPx, roomHeight - cabinetDepthPx, true)}
-            {renderCabinet(ox + roomWidth - cabinetDepthPx, oy + cabinetDepthPx, cabinetDepthPx, roomHeight - cabinetDepthPx, true)}
-            {renderSink(ox + roomWidth / 2 - 25, oy + 4, 50, cabinetDepthPx - 8)}
-            {renderStove(ox + roomWidth - cabinetDepthPx - 60, oy + roomHeight - cabinetDepthPx - 60, 55, cabinetDepthPx - 8, 90)}
-            {renderFridge(ox + 4, oy + roomHeight - cabinetDepthPx - 75, cabinetDepthPx - 8, 70)}
-            {renderDishwasher(ox + roomWidth / 2 + 35, oy + 4, 40, cabinetDepthPx - 8)}
-            {renderWorkTriangle(
-              [sinkPos, stovePos, fridgePos],
-              [calculateDistance(sinkPos, stovePos), calculateDistance(stovePos, fridgePos), calculateDistance(fridgePos, sinkPos)]
-            )}
+            {renderCabinetRun(ox, oy, topCabinets, 'horizontal')}
+            {renderCabinetRun(ox, oy + baseDepthPx, leftCabinets, 'vertical')}
+            {renderCabinetRun(ox + roomWidth - baseDepthPx, oy + baseDepthPx, rightCabinets, 'vertical', false)}
+            {renderWorkTriangle([sinkPos, rangePos, fridgePos])}
           </>
         )
       }
 
       case "galley": {
-        const sinkPos: [number, number] = [ox + cabinetDepthPx / 2, oy + roomHeight * 0.35]
-        const fridgePos: [number, number] = [ox + roomWidth - cabinetDepthPx / 2, oy + roomHeight * 0.5]
-        const stovePos: [number, number] = [ox + cabinetDepthPx / 2, oy + roomHeight * 0.65]
+        const leftCabinets = [
+          { type: 'base' as const, width: 24 },
+          { type: 'appliance' as const, width: 36, applianceType: 'sink' as const },
+          { type: 'appliance' as const, width: 24, applianceType: 'dishwasher' as const },
+          { type: 'appliance' as const, width: 30, applianceType: 'range' as const },
+          { type: 'base' as const, width: 24 },
+        ]
         
+        const rightCabinets = [
+          { type: 'base' as const, width: 36 },
+          { type: 'appliance' as const, width: 36, applianceType: 'fridge' as const },
+          { type: 'base' as const, width: 36 },
+          { type: 'base' as const, width: 30 },
+        ]
+
+        const sinkPos: [number, number] = [ox + baseDepthPx / 2, oy + toPixels(24 + 18)]
+        const rangePos: [number, number] = [ox + baseDepthPx / 2, oy + toPixels(24 + 36 + 24 + 15)]
+        const fridgePos: [number, number] = [ox + roomWidth - baseDepthPx / 2, oy + toPixels(36 + 18)]
+
         return (
           <>
-            {renderCabinet(ox, oy, cabinetDepthPx, roomHeight, true)}
-            {renderCabinet(ox + roomWidth - cabinetDepthPx, oy, cabinetDepthPx, roomHeight, true)}
-            {renderSink(ox + 4, oy + roomHeight * 0.3, cabinetDepthPx - 8, 50, 90)}
-            {renderStove(ox + 4, oy + roomHeight * 0.55, cabinetDepthPx - 8, 55, 90)}
-            {renderFridge(ox + roomWidth - cabinetDepthPx + 4, oy + roomHeight * 0.4, cabinetDepthPx - 8, 70)}
-            {renderDishwasher(ox + 4, oy + roomHeight * 0.45 - 20, cabinetDepthPx - 8, 35)}
-            {renderWorkTriangle(
-              [sinkPos, stovePos, fridgePos],
-              [calculateDistance(sinkPos, stovePos), calculateDistance(stovePos, fridgePos), calculateDistance(fridgePos, sinkPos)]
-            )}
+            {renderCabinetRun(ox, oy, leftCabinets, 'vertical')}
+            {renderCabinetRun(ox + roomWidth - baseDepthPx, oy, rightCabinets, 'vertical', false)}
+            {renderWorkTriangle([sinkPos, rangePos, fridgePos])}
           </>
         )
       }
 
       case "island": {
-        const islandWidth = Math.min(roomWidth * 0.5, 150)
-        const islandDepth = Math.min(roomHeight * 0.2, 50)
-        const islandX = ox + (roomWidth - islandWidth) / 2
+        const topCabinets = [
+          { type: 'appliance' as const, width: 36, applianceType: 'fridge' as const },
+          { type: 'base' as const, width: 24 },
+          { type: 'appliance' as const, width: 36, applianceType: 'sink' as const },
+          { type: 'appliance' as const, width: 24, applianceType: 'dishwasher' as const },
+          { type: 'base' as const, width: 30 },
+        ]
+        
+        // Island
+        const islandWidth = Math.min(roomWidthIn * 0.5, 72)
+        const islandDepth = 36
+        const islandX = ox + (roomWidth - toPixels(islandWidth)) / 2
         const islandY = oy + roomHeight * 0.55
-        
-        const sinkPos: [number, number] = [ox + roomWidth / 2, oy + cabinetDepthPx / 2]
-        const fridgePos: [number, number] = [ox + 35, oy + cabinetDepthPx / 2]
-        const stovePos: [number, number] = [islandX + islandWidth / 2, islandY + islandDepth / 2]
-        
+
+        const sinkPos: [number, number] = [ox + toPixels(36 + 24 + 18), oy + baseDepthPx / 2]
+        const rangePos: [number, number] = [islandX + toPixels(islandWidth) / 2, islandY + toPixels(islandDepth) / 2]
+        const fridgePos: [number, number] = [ox + toPixels(18), oy + baseDepthPx / 2]
+
         return (
           <>
-            {renderCabinet(ox, oy, roomWidth, cabinetDepthPx)}
-            {renderIsland(islandX, islandY, islandWidth, islandDepth)}
-            {renderSink(ox + roomWidth / 2 - 25, oy + 4, 50, cabinetDepthPx - 8)}
-            {renderStove(islandX + islandWidth / 2 - 27, islandY + 4, 55, islandDepth - 8)}
-            {renderFridge(ox + 8, oy + 4, 50, cabinetDepthPx - 8)}
-            {renderDishwasher(ox + roomWidth / 2 + 35, oy + 4, 40, cabinetDepthPx - 8)}
-            {renderWorkTriangle(
-              [sinkPos, stovePos, fridgePos],
-              [calculateDistance(sinkPos, stovePos), calculateDistance(stovePos, fridgePos), calculateDistance(fridgePos, sinkPos)]
-            )}
-            {/* Island dimension */}
-            {renderDimension(islandX, islandY + islandDepth + 35, islandX + islandWidth, islandY + islandDepth + 35, `${(islandWidth / SCALE).toFixed(1)}'`)}
+            {renderCabinetRun(ox, oy, topCabinets, 'horizontal')}
+            {/* Island with cooktop */}
+            <g>
+              <rect x={islandX} y={islandY} width={toPixels(islandWidth)} height={toPixels(islandDepth)} fill="#f5f0e8" stroke="#1a1a1a" strokeWidth={2} />
+              <rect x={islandX + 3} y={islandY + 3} width={toPixels(islandWidth) - 6} height={toPixels(islandDepth) - 6} fill="none" stroke="#8b8073" strokeWidth={1} />
+              {/* Cooktop on island */}
+              {renderRange(islandX + toPixels(islandWidth) / 2 - toPixels(15), islandY + 4, 30)}
+              {/* Seating indicators */}
+              {Array.from({ length: Math.floor(islandWidth / 24) }).map((_, i) => (
+                <circle key={i} cx={islandX + toPixels(12) + i * toPixels(24)} cy={islandY + toPixels(islandDepth) + 25} r={12} fill="none" stroke="#888" strokeWidth={1.5} strokeDasharray="4 2" />
+              ))}
+              {/* Island dimension */}
+              {renderDimension(islandX, islandY + toPixels(islandDepth) + 45, islandX + toPixels(islandWidth), islandY + toPixels(islandDepth) + 45, `${islandWidth}"`, 0, false)}
+            </g>
+            {renderWorkTriangle([sinkPos, rangePos, fridgePos])}
           </>
         )
       }
 
       case "single-wall": {
-        const sinkPos: [number, number] = [ox + roomWidth * 0.5, oy + cabinetDepthPx / 2]
-        const fridgePos: [number, number] = [ox + roomWidth * 0.2, oy + cabinetDepthPx / 2]
-        const stovePos: [number, number] = [ox + roomWidth * 0.75, oy + cabinetDepthPx / 2]
-        
+        const cabinets = [
+          { type: 'appliance' as const, width: 36, applianceType: 'fridge' as const },
+          { type: 'base' as const, width: 18 },
+          { type: 'appliance' as const, width: 36, applianceType: 'sink' as const },
+          { type: 'appliance' as const, width: 24, applianceType: 'dishwasher' as const },
+          { type: 'appliance' as const, width: 30, applianceType: 'range' as const },
+          { type: 'base' as const, width: 24 },
+        ]
+
+        const sinkPos: [number, number] = [ox + toPixels(36 + 18 + 18), oy + baseDepthPx / 2]
+        const rangePos: [number, number] = [ox + toPixels(36 + 18 + 36 + 24 + 15), oy + baseDepthPx / 2]
+        const fridgePos: [number, number] = [ox + toPixels(18), oy + baseDepthPx / 2]
+
         return (
           <>
-            {renderCabinet(ox, oy, roomWidth, cabinetDepthPx)}
-            {renderFridge(ox + roomWidth * 0.08, oy + 4, 50, cabinetDepthPx - 8)}
-            {renderSink(ox + roomWidth * 0.4, oy + 4, 50, cabinetDepthPx - 8)}
-            {renderDishwasher(ox + roomWidth * 0.55, oy + 4, 40, cabinetDepthPx - 8)}
-            {renderStove(ox + roomWidth * 0.7, oy + 4, 55, cabinetDepthPx - 8)}
-            {renderWorkTriangle(
-              [sinkPos, stovePos, fridgePos],
-              [calculateDistance(sinkPos, stovePos), calculateDistance(stovePos, fridgePos), calculateDistance(fridgePos, sinkPos)]
-            )}
+            {renderCabinetRun(ox, oy, cabinets, 'horizontal')}
+            {renderWorkTriangle([sinkPos, rangePos, fridgePos])}
           </>
         )
       }
@@ -417,89 +561,132 @@ export function KitchenFloorPlan({ width, depth, layout, className }: KitchenFlo
       <svg
         viewBox={`0 0 ${svgWidth} ${svgHeight}`}
         className="w-full h-full bg-white rounded-lg border border-border"
-        style={{ maxHeight: "500px" }}
+        style={{ maxHeight: "550px" }}
       >
-        {/* Background grid */}
+        {/* Defs for arrows */}
         <defs>
-          <pattern id="grid" width={SCALE} height={SCALE} patternUnits="userSpaceOnUse">
-            <path d={`M ${SCALE} 0 L 0 0 0 ${SCALE}`} fill="none" stroke="#e5e5e5" strokeWidth={0.5} />
+          <pattern id="grid" width={toPixels(12)} height={toPixels(12)} patternUnits="userSpaceOnUse">
+            <path d={`M ${toPixels(12)} 0 L 0 0 0 ${toPixels(12)}`} fill="none" stroke="#e8e8e8" strokeWidth={0.5} />
           </pattern>
+          <marker id="arrow-start" markerWidth="6" markerHeight="6" refX="0" refY="3" orient="auto">
+            <polygon points="6,0 6,6 0,3" fill="#444" />
+          </marker>
+          <marker id="arrow-end" markerWidth="6" markerHeight="6" refX="6" refY="3" orient="auto">
+            <polygon points="0,0 6,3 0,6" fill="#444" />
+          </marker>
         </defs>
+
+        {/* Background grid (1' squares) */}
         <rect x={MARGIN} y={MARGIN} width={roomWidth} height={roomHeight} fill="url(#grid)" />
 
-        {/* Room outline with thick walls */}
-        <rect
-          x={MARGIN}
-          y={MARGIN}
-          width={roomWidth}
-          height={roomHeight}
-          fill="none"
-          stroke="#1a1a1a"
-          strokeWidth={4}
-        />
+        {/* Room outline */}
+        <rect x={MARGIN} y={MARGIN} width={roomWidth} height={roomHeight} fill="none" stroke="#1a1a1a" strokeWidth={6} />
 
         {/* Room dimensions */}
-        {renderDimension(MARGIN, MARGIN + roomHeight + 25, MARGIN + roomWidth, MARGIN + roomHeight + 25, `${width}' - 0"`)}
-        {renderDimension(MARGIN - 25, MARGIN, MARGIN - 25, MARGIN + roomHeight, `${depth}' - 0"`)}
+        {renderDimension(MARGIN, MARGIN + roomHeight, MARGIN + roomWidth, MARGIN + roomHeight, `${width}'-0"`, 35)}
+        {renderDimension(MARGIN, MARGIN, MARGIN, MARGIN + roomHeight, `${depth}'-0"`, 35)}
 
-        {/* Layout elements */}
+        {/* Layout */}
         {renderLayout()}
 
-        {/* North arrow / scale indicator */}
-        <g transform={`translate(${svgWidth - 50}, ${svgHeight - 40})`}>
-          <rect x={-25} y={-15} width={50} height={30} fill="white" stroke="#ccc" strokeWidth={0.5} rx={2} />
-          <text x={0} y={-3} textAnchor="middle" className="text-[8px]" fill="#666">SCALE</text>
-          <line x1={-15} y1={7} x2={15} y2={7} stroke="#333" strokeWidth={1} />
-          <line x1={-15} y1={4} x2={-15} y2={10} stroke="#333" strokeWidth={1} />
-          <line x1={15} y1={4} x2={15} y2={10} stroke="#333" strokeWidth={1} />
-          <text x={0} y={16} textAnchor="middle" className="text-[7px]" fill="#666">1&apos; = {SCALE}px</text>
+        {/* Title block */}
+        <g transform={`translate(${svgWidth - 120}, ${svgHeight - 55})`}>
+          <rect x={0} y={0} width={110} height={50} fill="white" stroke="#1a1a1a" strokeWidth={1} />
+          <line x1={0} y1={18} x2={110} y2={18} stroke="#1a1a1a" strokeWidth={0.5} />
+          <line x1={0} y1={34} x2={110} y2={34} stroke="#1a1a1a" strokeWidth={0.5} />
+          <text x={55} y={12} textAnchor="middle" className="text-[8px] font-medium" fill="#1a1a1a">KITCHEN FLOOR PLAN</text>
+          <text x={55} y={28} textAnchor="middle" className="text-[7px]" fill="#666">SCALE: 1" = 2'-0"</text>
+          <text x={55} y={44} textAnchor="middle" className="text-[7px]" fill="#666">{layout.toUpperCase().replace('-', ' ')} LAYOUT</text>
         </g>
       </svg>
 
-      {/* Legend */}
-      <div className="flex flex-wrap items-center justify-center gap-4 mt-6 p-4 bg-muted/30 rounded-lg">
-        <div className="flex items-center gap-2">
-          <svg width="28" height="20" viewBox="0 0 28 20">
-            <rect x="2" y="2" width="24" height="16" fill="#e8e4df" stroke="#1a1a1a" strokeWidth="1" rx="1" />
-            <rect x="5" y="5" width="18" height="10" fill="#f5f5f5" stroke="#1a1a1a" strokeWidth="0.5" rx="2" />
-            <circle cx="14" cy="10" r="2" fill="#1a1a1a" />
-          </svg>
-          <span className="text-sm text-foreground">Sink</span>
+      {/* Enhanced Legend */}
+      <div className="mt-6 p-4 bg-muted/30 rounded-lg">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-6 bg-[#f5f0e8] border border-[#1a1a1a] rounded-sm relative">
+              <div className="absolute inset-1 border border-[#8b8073]" />
+            </div>
+            <div>
+              <div className="text-xs font-medium text-foreground">Base Cabinet</div>
+              <div className="text-[10px] text-muted-foreground">24&quot; deep</div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-4 border border-dashed border-[#666] bg-[rgba(200,195,185,0.3)] rounded-sm relative">
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-full h-[1px] bg-[#999] rotate-45 origin-center" style={{width: '120%'}} />
+              </div>
+            </div>
+            <div>
+              <div className="text-xs font-medium text-foreground">Wall Cabinet</div>
+              <div className="text-[10px] text-muted-foreground">12&quot; deep</div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <svg width="32" height="24" viewBox="0 0 32 24">
+              <rect x="2" y="2" width="28" height="20" fill="#e8e4df" stroke="#1a1a1a" strokeWidth="1" />
+              <rect x="5" y="5" width="10" height="14" fill="#f8f8f8" stroke="#1a1a1a" strokeWidth="0.5" rx="1" />
+              <rect x="17" y="5" width="10" height="14" fill="#f8f8f8" stroke="#1a1a1a" strokeWidth="0.5" rx="1" />
+            </svg>
+            <div>
+              <div className="text-xs font-medium text-foreground">Sink</div>
+              <div className="text-[10px] text-muted-foreground">36&quot; std</div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <svg width="32" height="24" viewBox="0 0 32 24">
+              <rect x="2" y="2" width="28" height="20" fill="#1a1a1a" stroke="#1a1a1a" strokeWidth="1" />
+              <circle cx="10" cy="8" r="4" fill="none" stroke="#555" strokeWidth="1" />
+              <circle cx="22" cy="8" r="4" fill="none" stroke="#555" strokeWidth="1" />
+              <circle cx="10" cy="16" r="4" fill="none" stroke="#555" strokeWidth="1" />
+              <circle cx="22" cy="16" r="4" fill="none" stroke="#555" strokeWidth="1" />
+            </svg>
+            <div>
+              <div className="text-xs font-medium text-foreground">Range</div>
+              <div className="text-[10px] text-muted-foreground">30&quot; std</div>
+            </div>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <svg width="28" height="20" viewBox="0 0 28 20">
-            <rect x="2" y="2" width="24" height="16" fill="#2a2a2a" stroke="#1a1a1a" strokeWidth="1" rx="1" />
-            <circle cx="9" cy="7" r="3" fill="none" stroke="#555" strokeWidth="1" />
-            <circle cx="19" cy="7" r="3" fill="none" stroke="#555" strokeWidth="1" />
-            <circle cx="9" cy="13" r="3" fill="none" stroke="#555" strokeWidth="1" />
-            <circle cx="19" cy="13" r="3" fill="none" stroke="#555" strokeWidth="1" />
-          </svg>
-          <span className="text-sm text-foreground">Range/Cooktop</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <svg width="24" height="28" viewBox="0 0 24 28">
-            <rect x="2" y="2" width="20" height="24" fill="#e0e0e0" stroke="#1a1a1a" strokeWidth="1" rx="1" />
-            <rect x="4" y="4" width="16" height="7" fill="#d0d0d0" stroke="#aaa" strokeWidth="0.5" />
-            <rect x="4" y="13" width="16" height="13" fill="#d0d0d0" stroke="#aaa" strokeWidth="0.5" />
-            <line x1="18" y1="6" x2="18" y2="9" stroke="#888" strokeWidth="1.5" strokeLinecap="round" />
-            <line x1="18" y1="16" x2="18" y2="22" stroke="#888" strokeWidth="1.5" strokeLinecap="round" />
-          </svg>
-          <span className="text-sm text-foreground">Refrigerator</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <svg width="28" height="20" viewBox="0 0 28 20">
-            <rect x="2" y="2" width="24" height="16" fill="#c8c8c8" stroke="#1a1a1a" strokeWidth="1" rx="1" />
-            <rect x="4" y="4" width="20" height="4" fill="#444" rx="1" />
-            <line x1="8" y1="12" x2="20" y2="12" stroke="#888" strokeWidth="2" strokeLinecap="round" />
-          </svg>
-          <span className="text-sm text-foreground">Dishwasher</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <svg width="28" height="16" viewBox="0 0 28 16">
-            <line x1="2" y1="8" x2="26" y2="8" stroke="#3b82f6" strokeWidth="1.5" strokeDasharray="4 3" />
-            <circle cx="14" cy="8" r="3" fill="#3b82f6" />
-          </svg>
-          <span className="text-sm text-foreground">Work Triangle</span>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div className="flex items-center gap-2">
+            <svg width="28" height="32" viewBox="0 0 28 32">
+              <rect x="2" y="2" width="24" height="28" fill="#d8d8d8" stroke="#1a1a1a" strokeWidth="1.5" />
+              <rect x="4" y="4" width="9" height="16" fill="#e8e8e8" stroke="#aaa" strokeWidth="0.5" />
+              <rect x="15" y="4" width="9" height="16" fill="#e8e8e8" stroke="#aaa" strokeWidth="0.5" />
+              <rect x="4" y="22" width="20" height="6" fill="#e0e0e0" stroke="#aaa" strokeWidth="0.5" />
+            </svg>
+            <div>
+              <div className="text-xs font-medium text-foreground">Refrigerator</div>
+              <div className="text-[10px] text-muted-foreground">36&quot;x30&quot; std</div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <svg width="32" height="24" viewBox="0 0 32 24">
+              <rect x="2" y="2" width="28" height="20" fill="#c0c0c0" stroke="#1a1a1a" strokeWidth="1" />
+              <rect x="4" y="4" width="24" height="5" fill="#333" rx="1" />
+              <line x1="8" y1="14" x2="24" y2="14" stroke="#666" strokeWidth="2" strokeLinecap="round" />
+            </svg>
+            <div>
+              <div className="text-xs font-medium text-foreground">Dishwasher</div>
+              <div className="text-[10px] text-muted-foreground">24&quot; std</div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <svg width="32" height="20" viewBox="0 0 32 20">
+              <line x1="4" y1="10" x2="28" y2="10" stroke="#3b82f6" strokeWidth="2" strokeDasharray="4 3" />
+              <circle cx="4" cy="10" r="4" fill="#3b82f6" />
+              <circle cx="28" cy="10" r="4" fill="#3b82f6" />
+            </svg>
+            <div>
+              <div className="text-xs font-medium text-foreground">Work Triangle</div>
+              <div className="text-[10px] text-muted-foreground">Sink-Range-Fridge</div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <span className="font-medium text-foreground">Standard Widths:</span>
+            <span>12&quot; 15&quot; 18&quot; 24&quot; 30&quot; 36&quot;</span>
+          </div>
         </div>
       </div>
     </div>
